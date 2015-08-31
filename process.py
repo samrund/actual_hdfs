@@ -1,6 +1,8 @@
 import re
 import csv
-import IPython
+import datetime
+import pytz
+# import IPython
 
 from printer import mprintln
 from subprocess import check_output
@@ -27,10 +29,11 @@ class Records:
 	def get_records(self):
 		return self.records
 
-	def add_record(self, bin_data):
+	def add_record(self, t0, subject, bin_data):
 		record = [None] * self.num_of_columns
 
-		record[1] = bin_data[0][5]
+		record[0] = subject
+		record[1] = t0 + datetime.timedelta(milliseconds=int(bin_data[0][self.FIELD_TIME]))
 		record[2] = self.get_temperature(bin_data)
 		record[3] = self.get_transitions(bin_data)
 		record[4] = self.get_distance(bin_data)
@@ -121,12 +124,13 @@ class Process:
 		mprintln('Dumping the data from: ' + filename)
 		out_h5ls = check_output([hdf5_folder + 'h5ls', filename + '/subjects'])
 
-		subjects = []
+		subjects = {}
 		for n in out_h5ls.split('\n'):
 			subject = n.split(' ')[0]
 			if subject:
 				out_h5dump = check_output([hdf5_folder + 'h5dump', '--group=subjects/' + subject, filename])
-				subjects.append(self.extract_data(out_h5dump))
+				if subject not in subjects:
+					subjects[subject] = self.extract_data(out_h5dump)
 
 		return subjects
 
@@ -139,21 +143,22 @@ class Process:
 
 		return formatted_matches
 
-	def process(self, hdf5_folder, filename, bin_time, fout):
-		subjects = self.dump_data(hdf5_folder, filename)
-		processed_data = self.process_all(subjects, bin_time)
-		self.save_to_csv(fout, processed_data)
+	def process(self, timezone, hdf5_folder, input, output, bin_time):
+		subjects = self.dump_data(hdf5_folder, input)
+		t0 = self.get_time_from_filename(input, timezone)
+		processed_data = self.process_all(t0, subjects, bin_time)
+		self.save_to_csv(output, processed_data)
 
 		return subjects
 
-	def process_all(self, subjects, bin_time):
+	def process_all(self, t0, subjects, bin_time):
 		mprintln('Processing the data...')
 
 		records = Records()
-		for subject in subjects:
-			binned_data = self.get_binned_data(subject, bin_time)
+		for key in subjects:
+			binned_data = self.get_binned_data(subjects[key], bin_time)
 			for bin_data in binned_data:
-				records.add_record(bin_data)
+				records.add_record(t0, key, bin_data)
 
 		return records.get_records()
 
@@ -175,17 +180,28 @@ class Process:
 		arr.append(sub_arr)
 		return arr
 
+	def get_time_from_filename(self, filename, timezone):
+		extracted_time_ms = filename.split('_')[0]
+		local_tz = pytz.timezone(timezone)
+		return datetime.datetime.fromtimestamp(int(extracted_time_ms) / 1000.0, local_tz)
+
 def main():
 	hdf5_folder = '/usr/local/hdf5/bin/'
 	filename = '1433757203990_000167_AOD12Week1Part2_0000601200000.hdf5'
+	# filename_poop = '1432739071054_000000_AOD12Week1_0000000000000.hdf5'
 
 	p = Process()
-	d = p.process(hdf5_folder, filename, 5000 * 60 * 1000, 'output.csv')
+	p.process(
+		timezone="Europe/London",
+		hdf5_folder=hdf5_folder,
+		input=filename,
+		output='output.csv',
+		bin_time=1 * 60 * 1000)
 
 	print ''
 
-	mprintln("Getting you into an IPhython session!")
-	IPython.embed()
+	# mprintln("Getting you into an IPhython session!")
+	# IPython.embed()
 
 if __name__ == "__main__":
 	main()

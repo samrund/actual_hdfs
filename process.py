@@ -19,7 +19,9 @@ class Records:
 
 	def __init__(self):
 		self.number_of_antennas = 12
-		self.records = [[['subject', 'time', 'temperature', 'transitions', 'distance', 'separation', 'isolation']]]
+		self.antennas_central = [5, 8]
+		self.antennas_thigmotactic = [1, 2, 4, 5, 6, 7, 9, 10, 11, 12]
+		self.records = [[['subject', 'time', 'temperature', 'transitions', 'distance', 'separation', 'isolation', 'mobile', 'thigmotactic', 'in centre zone']]]
 		self.num_of_columns = len(self.records[0][0]) + self.number_of_antennas
 
 		# add titles for antennas
@@ -39,7 +41,10 @@ class Records:
 		record[4] = self.get_distance(bin_data)
 		record[5] = self.get_separation(bin_data)
 		record[6] = self.get_isolation(bin_data)
+		record[7] = self.get_mobile(bin_data)
 		record[-self.number_of_antennas:] = self.add_antennas(record, bin_data, self.number_of_antennas)
+		record[8] = self.get_time_of_specific_zones(record[-self.number_of_antennas:], self.antennas_thigmotactic)
+		record[9] = self.get_time_of_specific_zones(record[-self.number_of_antennas:], self.antennas_central)
 
 		self.records[0].append(record)
 
@@ -78,6 +83,18 @@ class Records:
 		avg = sum_target / float(len(data))
 		return str(avg)
 
+	def get_mobile(self, data):
+		target = self.FIELD_DISTANCE
+		last_time = int(data[0][self.FIELD_TIME])
+		sum_target = 0
+		for n in data:
+			time_diff = int(n[self.FIELD_TIME]) - last_time
+			last_time = int(n[self.FIELD_TIME])
+			if(float(n[target]) > 0):
+				sum_target += time_diff / 1000.0
+
+		return sum_target
+
 	def get_isolation(self, data):
 		target = self.FIELD_SEPARATION
 		last_time = int(data[0][self.FIELD_TIME])
@@ -105,6 +122,13 @@ class Records:
 				last_time = new_time
 
 		return antennas
+
+	def get_time_of_specific_zones(self, antennas, target_antennas):
+		sum_value = 0
+		for n in target_antennas:
+			sum_value += antennas[int(n) - 1]
+
+		return sum_value
 
 
 class Process:

@@ -42,13 +42,16 @@ class BrowseSaveButton(wx.Button):
 class Interface(wx.Frame):
 
 	def __init__(self, parent, title):
-		super(Interface, self).__init__(parent, title=title, size=(500, 300))
+		super(Interface, self).__init__(parent, title=title, size=(550, 480))
 
 		self.field_timezone = None
 		self.field_spin = None
 		self.field_hdf5 = None
 		self.field_input = None
 		self.field_output = None
+
+		self.options_checkboxes = None
+		self.options_antenas = None
 
 		self.init_ui()
 		self.Centre()
@@ -117,17 +120,56 @@ class Interface(wx.Frame):
 
 		# BLOCK 3
 		# #######
+
+		sb = wx.StaticBox(panel, label="Columns")
+		sbs = wx.StaticBoxSizer(sb, wx.VERTICAL)
+
+		boxsizer = wx.GridSizer(rows=6, cols=2, hgap=150, vgap=5)
+
+		options = ['subject', 'time', 'temperature', 'transitions', 'distance', 'separation', 'isolation', 'mobile', 'thigmotactic', 'centre-zone']
+		self.options_checkboxes = []
+		for n in options:
+			ch_box = wx.CheckBox(panel, label=n)
+			ch_box.SetValue(True)
+			self.options_checkboxes.append(ch_box)
+			boxsizer.Add(ch_box, 0, 0)
+
+		# add one for all antennas
+		ch_box = wx.CheckBox(panel, label="Antennas")
+		ch_box.SetValue(True)
+		self.options_antenas = ch_box
+		boxsizer.Add(ch_box, 0, 0)
+
+		sbs.Add(boxsizer, flag=wx.LEFT | wx.TOP, border=5)
+		sizer.Add(sbs, pos=(7, 0), span=(1, 5), flag=wx.EXPAND | wx.TOP | wx.LEFT | wx.RIGHT, border=10)
+
+		# BLOCK 4
+		# #######
 		button_cancel = wx.Button(panel, label="Cancel")
 		button_cancel.Bind(wx.EVT_BUTTON, self.close_window)
-		sizer.Add(button_cancel, pos=(7, 3), span=(1, 1), flag=wx.BOTTOM | wx.RIGHT, border=5)
+		sizer.Add(button_cancel, pos=(8, 3), span=(1, 1), flag=wx.BOTTOM | wx.RIGHT | wx.TOP, border=5)
 
-		button_ok = wx.Button(panel, label="Ok")
+		button_ok = wx.Button(panel, label="OK")
 		button_ok.Bind(wx.EVT_BUTTON, self.process)
-		sizer.Add(button_ok, pos=(7, 4))
+		sizer.Add(button_ok, pos=(8, 4), flag=wx.BOTTOM | wx.RIGHT | wx.TOP, border=5)
 
 		sizer.AddGrowableCol(2)
 
 		panel.SetSizer(sizer)
+
+	def get_columns_info(self):
+		columns = []
+		for n in self.options_checkboxes:
+			if n.GetValue() is True:
+				columns.append(n.GetLabel())
+
+		return "|".join(columns)
+
+	def get_antennas_info(self):
+		if self.options_antenas:
+			return self.options_antenas.GetValue() is True
+
+		return False
 
 	def close_window(self, event):
 		self.Destroy()
@@ -138,9 +180,11 @@ class Interface(wx.Frame):
 		hdf5 = self.field_hdf5.GetValue()
 		i = self.field_input.GetValue()
 		o = self.field_output.GetValue()
+		c = self.get_columns_info()
+		a = str(self.get_antennas_info())
 
-		print " ".join(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o])
-		call(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o])
+		print " ".join(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o, "-c", c, "-a", a])
+		call(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o, "-c", c, "-a", a])
 
 if __name__ == '__main__':
 

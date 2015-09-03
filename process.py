@@ -18,16 +18,22 @@ class Records:
 	FIELD_TEMP = 6
 	FIELD_TRANSITION = 7
 
-	def __init__(self):
+	def __init__(self, columns, antennas):
+		self.antennas = antennas
 		self.number_of_antennas = 12
 		self.antennas_central = [5, 8]
 		self.antennas_thigmotactic = [1, 2, 4, 5, 6, 7, 9, 10, 11, 12]
-		self.records = [[['subject', 'time', 'temperature', 'transitions', 'distance', 'separation', 'isolation', 'mobile', 'thigmotactic', 'in centre zone']]]
+
+		self.records = [[[]]]
+		for n in columns.split("|"):
+			self.records[0][0].append(n.strip())
+
 		self.num_of_columns = len(self.records[0][0]) + self.number_of_antennas
 
-		# add titles for antennas
-		for n in range(1, self.number_of_antennas + 1):
-			self.records[0][0].append("antenna" + str(n))
+		# add titles for antennas, if enabled
+		if self.antennas != 'False':
+			for n in range(1, self.number_of_antennas + 1):
+				self.records[0][0].append("antenna" + str(n))
 
 	def get_records(self):
 		return self.records
@@ -35,19 +41,41 @@ class Records:
 	def add_record(self, t0, subject, bin_data):
 		record = [None] * self.num_of_columns
 
-		record[0] = subject
-		record[1] = t0 + datetime.timedelta(milliseconds=int(bin_data[0][self.FIELD_TIME]))
-		record[2] = self.get_temperature(bin_data)
-		record[3] = self.get_transitions(bin_data)
-		record[4] = self.get_distance(bin_data)
-		record[5] = self.get_separation(bin_data)
-		record[6] = self.get_isolation(bin_data)
-		record[7] = self.get_mobile(bin_data)
 		record[-self.number_of_antennas:] = self.add_antennas(record, bin_data, self.number_of_antennas)
-		record[8] = self.get_time_of_specific_zones(record[-self.number_of_antennas:], self.antennas_thigmotactic)
-		record[9] = self.get_time_of_specific_zones(record[-self.number_of_antennas:], self.antennas_central)
+
+		for n in range(self.num_of_columns - self.number_of_antennas):
+			record[n] = self.fill_column(self.records[0][0][n], t0, subject, bin_data, record)
+
+		# TODO: has to be done this way so far - antennas are necessary for 'thigmotactic' and 'centre-zone'.
+		# thus, it needs to be computed first and them removed if disabled
+		if self.antennas == 'False':
+			record = record[:-self.number_of_antennas]
 
 		self.records[0].append(record)
+
+	def fill_column(self, col, t0, subject, bin_data, record):
+		if col == "subject":
+			return subject
+		elif col == "time":
+			return t0 + datetime.timedelta(milliseconds=int(bin_data[0][self.FIELD_TIME]))
+		elif col == "temperature":
+			return self.get_temperature(bin_data)
+		elif col == "transitions":
+			return self.get_transitions(bin_data)
+		elif col == "distance":
+			return self.get_distance(bin_data)
+		elif col == "separation":
+			return self.get_separation(bin_data)
+		elif col == "isolation":
+			return self.get_isolation(bin_data)
+		elif col == "mobile":
+			return self.get_mobile(bin_data)
+		elif col == "thigmotactic":
+			return self.get_time_of_specific_zones(record[-self.number_of_antennas:], self.antennas_thigmotactic)
+		elif col == "centre-zone":
+			return self.get_time_of_specific_zones(record[-self.number_of_antennas:], self.antennas_central)
+
+		return None
 
 	def get_temperature(self, data):
 		target = self.FIELD_TEMP
@@ -168,18 +196,18 @@ class Process:
 
 		return formatted_matches
 
-	def process(self, timezone, hdf5_folder, input, output, bin_time):
+	def process(self, timezone, hdf5_folder, input, output, bin_time, columns, antennas):
 		subjects = self.dump_data(hdf5_folder, input)
 		t0 = self.get_time_from_filename(input, timezone)
-		processed_data = self.process_all(t0, subjects, bin_time)
+		processed_data = self.process_all(columns, antennas, t0, subjects, bin_time)
 		self.save_to_csv(output, processed_data)
 
 		return subjects
 
-	def process_all(self, t0, subjects, bin_time):
+	def process_all(self, columns, antennas, t0, subjects, bin_time):
 		mprintln('Processing the data...')
 
-		records = Records()
+		records = Records(columns, antennas)
 		for key in subjects:
 			binned_data = self.get_binned_data(subjects[key], bin_time)
 			for bin_data in binned_data:
@@ -213,7 +241,7 @@ class Process:
 
 def main():
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "hvb:z:f:i:o:", ["help", "verbose", "bin_time=", "timezone=", "hdf5_folder=", "input=", "output="])
+		opts, args = getopt.getopt(sys.argv[1:], "hvb:z:f:i:o:c:a:", ["help", "verbose", "bin_time=", "timezone=", "hdf5_folder=", "input=", "output=", "columns=", "antennas="])
 	except getopt.GetoptError as err:
 		# print help information and exit:
 		print str(err)
@@ -226,7 +254,9 @@ def main():
 		"timezone": None,
 		"hdf5_folder": None,
 		"input": None,
-		"output": None
+		"output": None,
+		"columns": None,
+		"antennas": None
 	}
 
 	for o, a in opts:
@@ -245,6 +275,10 @@ def main():
 			args['input'] = a
 		elif o in ("-o"):
 			args['output'] = a
+		elif o in ("-c"):
+			args['columns'] = a
+		elif o in ("-a"):
+			args['antennas'] = a
 		else:
 			assert False, "unhandled option"
 
@@ -254,7 +288,9 @@ def main():
 		hdf5_folder=args["hdf5_folder"],
 		input=args["input"],
 		output=args["output"],
-		bin_time=int(args["bin_time"]))
+		bin_time=int(args["bin_time"]),
+		columns=args["columns"],
+		antennas=args["antennas"])
 
 def usage():
 	print "usage:"

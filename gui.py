@@ -1,4 +1,5 @@
 import wx
+from subprocess import call
 
 class BrowseFolderButton(wx.Button):
 
@@ -69,7 +70,7 @@ class Interface(wx.Frame):
 		text_bin_size = wx.StaticText(panel, label="Bin size (s)")
 		sizer.Add(text_bin_size, pos=(1, 0), flag=wx.LEFT | wx.TOP, border=10)
 
-		self.field_spin = wx.SpinCtrl(panel, value='1', size=(60, -1), min=1, max=9999)
+		self.field_spin = wx.SpinCtrl(panel, value='60', size=(60, -1), min=1, max=9999)
 		sizer.Add(self.field_spin, pos=(1, 1), span=(1, 1), flag=wx.TOP | wx.EXPAND)
 
 		line = wx.StaticLine(panel)
@@ -93,7 +94,7 @@ class Interface(wx.Frame):
 		label_input = wx.StaticText(panel, label="Input")
 		sizer.Add(label_input, pos=(4, 0), flag=wx.LEFT | wx.TOP, border=10)
 
-		self.field_input = wx.TextCtrl(panel)
+		self.field_input = wx.TextCtrl(panel, value="")
 		sizer.Add(self.field_input, pos=(4, 1), span=(1, 3), flag=wx.TOP | wx.EXPAND, border=5)
 
 		button1 = BrowseFolderButton(panel, label="Browse...")
@@ -104,7 +105,7 @@ class Interface(wx.Frame):
 		label_output = wx.StaticText(panel, label="Output")
 		sizer.Add(label_output, pos=(5, 0), flag=wx.LEFT | wx.TOP, border=10)
 
-		self.field_output = wx.TextCtrl(panel)
+		self.field_output = wx.TextCtrl(panel, value="output.csv")
 		sizer.Add(self.field_output, pos=(5, 1), span=(1, 3), flag=wx.TOP | wx.EXPAND, border=5)
 
 		button1 = BrowseSaveButton(panel, label="Browse...")
@@ -132,11 +133,14 @@ class Interface(wx.Frame):
 		self.Destroy()
 
 	def process(self, event):
-		print self.field_timezone.GetValue()
-		print self.field_spin.GetValue()
-		print self.field_hdf5.GetValue()
-		print self.field_input.GetValue()
-		print self.field_output.GetValue()
+		tz = self.field_timezone.GetValue()
+		b = str(int(self.field_spin.GetValue()) * 1000)
+		hdf5 = self.field_hdf5.GetValue()
+		i = self.field_input.GetValue()
+		o = self.field_output.GetValue()
+
+		print " ".join(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o])
+		call(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o])
 
 if __name__ == '__main__':
 

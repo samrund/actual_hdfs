@@ -2,7 +2,8 @@ import re
 import csv
 import datetime
 import pytz
-# import IPython
+import sys
+import getopt
 
 from printer import mprintln
 from subprocess import check_output
@@ -205,27 +206,59 @@ class Process:
 		return arr
 
 	def get_time_from_filename(self, filename, timezone):
-		extracted_time_ms = filename.split('_')[0]
+		splitted = filename.split('/')
+		extracted_time_ms = splitted[len(splitted) - 1].split('_')[0]
 		local_tz = pytz.timezone(timezone)
 		return datetime.datetime.fromtimestamp(int(extracted_time_ms) / 1000.0, local_tz)
 
 def main():
-	hdf5_folder = '/usr/local/hdf5/bin/'
-	filename = '1433757203990_000167_AOD12Week1Part2_0000601200000.hdf5'
-	# filename_poop = '1432739071054_000000_AOD12Week1_0000000000000.hdf5'
+	try:
+		opts, args = getopt.getopt(sys.argv[1:], "hvb:z:f:i:o:", ["help", "verbose", "bin_time=", "timezone=", "hdf5_folder=", "input=", "output="])
+	except getopt.GetoptError as err:
+		# print help information and exit:
+		print str(err)
+		usage()
+		sys.exit(2)
+
+	args = {
+		"verbose": False,
+		"bin_time": None,
+		"timezone": None,
+		"hdf5_folder": None,
+		"input": None,
+		"output": None
+	}
+
+	for o, a in opts:
+		if o == "-v":
+			args['verbose'] = True
+		elif o in ("-h"):
+			usage()
+			sys.exit()
+		elif o in ("-b"):
+			args['bin_time'] = a
+		elif o in ("-z"):
+			args['timezone'] = a
+		elif o in ("-f"):
+			args['hdf5_folder'] = a
+		elif o in ("-i"):
+			args['input'] = a
+		elif o in ("-o"):
+			args['output'] = a
+		else:
+			assert False, "unhandled option"
 
 	p = Process()
 	p.process(
-		timezone="Europe/London",
-		hdf5_folder=hdf5_folder,
-		input=filename,
-		output='output.csv',
-		bin_time=1 * 60 * 1000)
+		timezone=args["timezone"],
+		hdf5_folder=args["hdf5_folder"],
+		input=args["input"],
+		output=args["output"],
+		bin_time=int(args["bin_time"]))
 
-	print ''
-
-	# mprintln("Getting you into an IPhython session!")
-	# IPython.embed()
+def usage():
+	print "usage:"
+	print "-b time -z timezone -f hdf5_folder -i input_folder -o output_file"
 
 if __name__ == "__main__":
 	main()

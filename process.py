@@ -1,12 +1,18 @@
 import re
+import os
 import csv
 import datetime
 import pytz
 import sys
 import getopt
 
-from printer import mprintln
+# from profilehooks import profile
+
+from printer import mprintln, mprint
 from subprocess import check_output
+
+# import cPickle
+import IPython
 
 class Records:
 	FIELD_ANTENNA = 0
@@ -18,7 +24,8 @@ class Records:
 	FIELD_TEMP = 6
 	FIELD_TRANSITION = 7
 
-	def __init__(self, columns, antennas):
+	def __init__(self, timezone, columns, antennas):
+		self.timezone = timezone
 		self.antennas = antennas
 		self.number_of_antennas = 12
 		self.antennas_central = [5, 8]
@@ -38,13 +45,13 @@ class Records:
 	def get_records(self):
 		return self.records
 
-	def add_record(self, t0, subject, bin_data):
+	def add_record(self, subject, bin_data):
 		record = [None] * self.num_of_columns
 
 		record[-self.number_of_antennas:] = self.add_antennas(record, bin_data, self.number_of_antennas)
 
 		for n in range(self.num_of_columns - self.number_of_antennas):
-			record[n] = self.fill_column(self.records[0][0][n], t0, subject, bin_data, record)
+			record[n] = self.fill_column(self.records[0][0][n], subject, bin_data, record)
 
 		# TODO: has to be done this way so far - antennas are necessary for 'thigmotactic' and 'centre-zone'.
 		# thus, it needs to be computed first and them removed if disabled
@@ -53,11 +60,12 @@ class Records:
 
 		self.records[0].append(record)
 
-	def fill_column(self, col, t0, subject, bin_data, record):
+	def fill_column(self, col, subject, bin_data, record):
 		if col == "subject":
 			return subject
 		elif col == "time":
-			return t0 + datetime.timedelta(milliseconds=int(bin_data[0][self.FIELD_TIME]))
+			local_tz = pytz.timezone(self.timezone)
+			return datetime.datetime.fromtimestamp(int(bin_data[0][self.FIELD_TIME]) / 1000.0, local_tz)
 		elif col == "temperature":
 			return self.get_temperature(bin_data)
 		elif col == "transitions":
@@ -161,6 +169,8 @@ class Records:
 
 
 class Process:
+	FIELD_TIME = 5
+
 	def __init__(self):
 		pass
 
@@ -173,47 +183,117 @@ class Process:
 				for record in subject:
 					writer.writerow(record)
 
-	def dump_data(self, hdf5_folder, filename):
+	def save_processed_data(self, output_dir, processed_data):
+		if not os.path.exists(output_dir):
+			os.makedirs(output_dir)
+
+		for subject in processed_data:
+			self.save_to_csv(output_dir + '/' + subject + '.csv', processed_data[subject].get_records())
+
+	def dump_data(self, hdf5_folder, filename, timezone, subjects={}):
 		mprintln('Dumping the data from: ' + filename)
 		out_h5ls = check_output([hdf5_folder + 'h5ls', filename + '/subjects'])
 
-		subjects = {}
+		# cache_filenmae = 'obj.save'
+		# if os.path.isfile(cache_filenmae):
+		# 	f = file(cache_filenmae, 'rb')
+		# 	loaded_data = cPickle.load(f)
+		# 	f.close()
+		# 	return loaded_data
+
+		for n in subjects:
+			print n + " - " + str(len(subjects[n]))
+
 		for n in out_h5ls.split('\n'):
 			subject = n.split(' ')[0]
 			if subject:
 				out_h5dump = check_output([hdf5_folder + 'h5dump', '--group=subjects/' + subject, filename])
+
 				if subject not in subjects:
-					subjects[subject] = self.extract_data(out_h5dump)
+					subjects[subject] = []
+
+				subjects[subject] += self.extract_data(out_h5dump, filename)
+
+				# f = file(cache_filenmae, 'wb')
+				# cPickle.dump(subjects, f, protocol=cPickle.HIGHEST_PROTOCOL)
+				# f.close()
+
+		for n in subjects:
+			print n + " - " + str(len(subjects[n]))
 
 		return subjects
 
-	def extract_data(self, data):
-		matches = re.findall('\(\d+\):\s\{[\w\s,.]+\}', data)
+	def extract_data(self, data, filename):
+		prog = re.compile('\(\d+\):\s\{[\w\s,.]+\}')
+		matches = prog.findall(data)
 		formatted_matches = []
+		file_time = self.get_time_from_filename(filename)
+
 		for match in matches:
-			formatted_match = map(lambda x: x.replace(",", "").strip(), match.split('\n'))[1:-1]
+			formatted_match = match.split('\n')[1:-1]
+			for n in range(len(formatted_match)):
+				formatted_match[n] = formatted_match[n].replace(",", "").strip()
+
+			# handle times
+			formatted_match[self.FIELD_TIME] = file_time + int(formatted_match[self.FIELD_TIME])
+
 			formatted_matches.append(formatted_match)
 
 		return formatted_matches
 
-	def process(self, timezone, hdf5_folder, input, output, bin_time, columns, antennas):
-		subjects = self.dump_data(hdf5_folder, input)
-		t0 = self.get_time_from_filename(input, timezone)
-		processed_data = self.process_all(columns, antennas, t0, subjects, bin_time)
-		self.save_to_csv(output, processed_data)
+	def process(self, timezone, hdf5_folder, input, output_dir, bin_time, columns, antennas):
+		input_files = self.get_hfd5_files(input)
 
-		return subjects
+		processed_data = self.process_all(hdf5_folder, columns, antennas, timezone, input_files, bin_time)
+		self.save_processed_data(output_dir, processed_data)
 
-	def process_all(self, columns, antennas, t0, subjects, bin_time):
+		return processed_data
+
+	def process_all(self, hdf5_folder, columns, antennas, timezone, input_files, bin_time):
 		mprintln('Processing the data...')
+		mprint(str(len(input_files)) + ' file(s) found')
 
-		records = Records(columns, antennas)
-		for key in subjects:
-			binned_data = self.get_binned_data(subjects[key], bin_time)
-			for bin_data in binned_data:
-				records.add_record(t0, key, bin_data)
+		result = {}
 
-		return records.get_records()
+		subjects_data = {}
+		for n in range(len(input_files)):
+			subjects_data = self.dump_data(hdf5_folder, input_files[n], subjects_data)
+
+			for subject in subjects_data:
+				while True:
+					binned_data = self.get_binned_record(subjects_data[subject], bin_time)
+					if binned_data:
+						# remove the records from the list
+						subjects_data[subject] = subjects_data[subject][len(binned_data):]
+
+						# add binned data to the result list
+						result = self.add_record_to_dictionary(result, timezone, subject, binned_data, columns, antennas)
+					else:
+						break
+
+		return result
+
+	def add_record_to_dictionary(self, dic, timezone, subject, bin_data, columns, antennas):
+		if subject not in dic:
+			dic[subject] = Records(timezone, columns, antennas)
+
+		dic[subject].add_record(subject, bin_data)
+
+		return dic
+
+	def get_binned_record(self, data, bin_time):
+		arr = []
+		t0 = None
+		for record in data:
+			if t0 is None:
+				t0 = int(record[self.FIELD_TIME])
+
+			if int(record[self.FIELD_TIME]) > t0 + bin_time:
+				return arr
+
+			arr.append(record)
+
+		return None
 
 	def get_binned_data(self, data, bin_time):
 		arr = []
@@ -221,9 +301,9 @@ class Process:
 		t0 = None
 		for record in data:
 			if t0 is None:
-				t0 = int(record[5])
+				t0 = int(record[self.FIELD_TIME])
 
-			if int(record[5]) > t0 + bin_time:
+			if int(record[self.FIELD_TIME]) > t0 + bin_time:
 				arr.append(sub_arr)
 				sub_arr = []
 				t0 = None
@@ -233,11 +313,21 @@ class Process:
 		arr.append(sub_arr)
 		return arr
 
-	def get_time_from_filename(self, filename, timezone):
+	def get_time_from_filename(self, filename):
 		splitted = filename.split('/')
 		extracted_time_ms = splitted[len(splitted) - 1].split('_')[0]
-		local_tz = pytz.timezone(timezone)
-		return datetime.datetime.fromtimestamp(int(extracted_time_ms) / 1000.0, local_tz)
+		extracted_last_part = splitted[len(splitted) - 1].split('_').pop()
+		extracted_experiment_time = int(extracted_last_part.split('.')[0])
+
+		return int(extracted_time_ms) + int(extracted_experiment_time)
+
+	def get_hfd5_files(self, path):
+		files = []
+		for file in sorted(os.listdir(path)):
+			if file.endswith(".hdf5"):
+				files.append(path + "/" + file)
+
+		return files
 
 def main():
 	try:
@@ -283,18 +373,21 @@ def main():
 			assert False, "unhandled option"
 
 	p = Process()
-	p.process(
+	a = p.process(
 		timezone=args["timezone"],
 		hdf5_folder=args["hdf5_folder"],
 		input=args["input"],
-		output=args["output"],
+		output_dir=args["output"],
 		bin_time=int(args["bin_time"]),
 		columns=args["columns"],
 		antennas=args["antennas"])
 
+	mprint("Getting you into an IPhython session!")
+	IPython.embed()
+
 def usage():
 	print "usage:"
-	print "-b time -z timezone -f hdf5_folder -i input_folder -o output_file"
+	print "-b time -z timezone -f hdf5_folder -i input_folder -o output_folder"
 
 if __name__ == "__main__":
 	main()

@@ -108,7 +108,7 @@ class Interface(wx.Frame):
 		label_output = wx.StaticText(panel, label="Output")
 		sizer.Add(label_output, pos=(5, 0), flag=wx.LEFT | wx.TOP, border=10)
 
-		self.field_output = wx.TextCtrl(panel, value="output.csv")
+		self.field_output = wx.TextCtrl(panel, value="./output")
 		sizer.Add(self.field_output, pos=(5, 1), span=(1, 3), flag=wx.TOP | wx.EXPAND, border=5)
 
 		button1 = BrowseSaveButton(panel, label="Browse...")

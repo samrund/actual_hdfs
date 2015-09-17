@@ -121,7 +121,7 @@ class Interface(wx.Frame):
 		self.field_output = wx.TextCtrl(panel, value="./output")
 		sizer.Add(self.field_output, pos=(5, 1), span=(1, 3), flag=wx.TOP | wx.EXPAND, border=5)
 
-		button1 = BrowseSaveButton(panel, label="Browse...")
+		button1 = BrowseFolderButton(panel, label="Browse...")
 		button1.target = self.field_output
 		sizer.Add(button1, pos=(5, 4), flag=wx.TOP | wx.RIGHT, border=5)
 
@@ -155,7 +155,7 @@ class Interface(wx.Frame):
 
 		# BLOCK 4
 		# #######
-		progress = wx.Gauge(panel, -1, 50, size=(430, 20))
+		progress = wx.Gauge(panel, -1, 50, size=(425, 20))
 
 		sizer.Add(progress, pos=(8, 0), span=wx.GBSpan(1, 5), flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
 

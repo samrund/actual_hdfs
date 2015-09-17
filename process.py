@@ -194,9 +194,9 @@ class Process:
 		mprintln('Dumping the data from: ' + filename)
 
 		if os.name is 'posix':
-			return self.dump_data_posix(**locals())
+			return self.dump_data_posix(hdf5_folder, filename, timezone, subjects={})
 
-		return self.dump_data_nt(**locals())
+		return self.dump_data_nt(hdf5_folder, filename, timezone, subjects={})
 
 	def dump_data_posix(self, hdf5_folder, filename, timezone, subjects={}):
 		out_h5ls = check_output([hdf5_folder + 'h5ls', filename + '/subjects'])

@@ -1,8 +1,15 @@
 import wx
+import os
 # from subprocess import call
 
 from printer import mprint
 from process import Process
+
+default_hdf5_folder = ''
+if os.name is 'posix':
+	default_hdf5_folder = '/usr/local/hdf5/bin/'
+elif os.name is 'nt':
+	default_hdf5_folder = 'C:\\Program Files\\HDF_Group\\1.8.15\\bin\\'
 
 class BrowseFolderButton(wx.Button):
 
@@ -89,7 +96,7 @@ class Interface(wx.Frame):
 		label_hdf5_folder = wx.StaticText(panel, label="HDF5 folder")
 		sizer.Add(label_hdf5_folder, pos=(3, 0), flag=wx.LEFT | wx.TOP, border=10)
 
-		self.field_hdf5 = wx.TextCtrl(panel, value="/usr/local/hdf5/bin/")
+		self.field_hdf5 = wx.TextCtrl(panel, value=default_hdf5_folder)
 		sizer.Add(self.field_hdf5, pos=(3, 1), span=(1, 3), flag=wx.TOP | wx.EXPAND, border=5)
 
 		button1 = BrowseFolderButton(panel, label="Browse...")

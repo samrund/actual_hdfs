@@ -192,6 +192,13 @@ class Process:
 
 	def dump_data(self, hdf5_folder, filename, timezone, subjects={}):
 		mprintln('Dumping the data from: ' + filename)
+
+		if os.name is 'posix':
+			return self.dump_data_posix(**locals())
+
+		return self.dump_data_nt(**locals())
+
+	def dump_data_posix(self, hdf5_folder, filename, timezone, subjects={}):
 		out_h5ls = check_output([hdf5_folder + 'h5ls', filename + '/subjects'])
 
 		# cache_filenmae = 'obj.save'
@@ -217,6 +224,29 @@ class Process:
 				# f = file(cache_filenmae, 'wb')
 				# cPickle.dump(subjects, f, protocol=cPickle.HIGHEST_PROTOCOL)
 				# f.close()
+
+		for n in subjects:
+			print n + " - " + str(len(subjects[n]))
+
+		return subjects
+
+	def dump_data_nt(self, hdf5_folder, filename, timezone, subjects={}):
+		os.chdir(hdf5_folder)
+		out_h5ls = check_output(['h5lsdll.exe', filename + '/subjects'])
+
+		for n in subjects:
+			print n + " - " + str(len(subjects[n]))
+
+		for n in out_h5ls.split('\n'):
+			subject = n.split(' ')[0]
+			if subject:
+				os.chdir(hdf5_folder)
+				out_h5dump = check_output(['h5dumpdll.exe', '--group=subjects/' + subject, filename])
+
+				if subject not in subjects:
+					subjects[subject] = []
+
+				subjects[subject] += self.extract_data(out_h5dump, filename)
 
 		for n in subjects:
 			print n + " - " + str(len(subjects[n]))

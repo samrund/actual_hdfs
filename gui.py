@@ -42,7 +42,7 @@ class BrowseSaveButton(wx.Button):
 class Interface(wx.Frame):
 
 	def __init__(self, parent, title):
-		super(Interface, self).__init__(parent, title=title, size=(550, 480))
+		super(Interface, self).__init__(parent, title=title, size=(450, 525))
 
 		self.field_timezone = None
 		self.field_spin = None
@@ -60,7 +60,7 @@ class Interface(wx.Frame):
 	def init_ui(self):
 		panel = wx.Panel(self)
 
-		sizer = wx.GridBagSizer(7, 5)
+		sizer = wx.GridBagSizer(8, 5)
 
 		# BLOCK 1
 		# #######
@@ -145,13 +145,19 @@ class Interface(wx.Frame):
 
 		# BLOCK 4
 		# #######
+		progress = wx.Gauge(panel, -1, 50, size=(430, 20))
+
+		sizer.Add(progress, pos=(8, 0), span=wx.GBSpan(1, 5), flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+
+		# BLOCK 5
+		# #######
 		button_cancel = wx.Button(panel, label="Cancel")
 		button_cancel.Bind(wx.EVT_BUTTON, self.close_window)
-		sizer.Add(button_cancel, pos=(8, 3), span=(1, 1), flag=wx.BOTTOM | wx.RIGHT | wx.TOP, border=5)
+		sizer.Add(button_cancel, pos=(9, 3), span=(1, 1), flag=wx.BOTTOM | wx.RIGHT | wx.TOP, border=5)
 
 		button_ok = wx.Button(panel, label="OK")
 		button_ok.Bind(wx.EVT_BUTTON, self.process)
-		sizer.Add(button_ok, pos=(8, 4), flag=wx.BOTTOM | wx.RIGHT | wx.TOP, border=5)
+		sizer.Add(button_ok, pos=(9, 4), flag=wx.BOTTOM | wx.RIGHT | wx.TOP, border=5)
 
 		sizer.AddGrowableCol(2)
 

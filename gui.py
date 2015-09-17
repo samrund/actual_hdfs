@@ -9,7 +9,7 @@ default_hdf5_folder = ''
 if os.name is 'posix':
 	default_hdf5_folder = '/usr/local/hdf5/bin/'
 elif os.name is 'nt':
-	default_hdf5_folder = 'C:\\Program Files\\HDF_Group\\1.8.15\\bin\\'
+	default_hdf5_folder = 'C:\\Program Files\\HDF_Group\\HDF5\\1.8.15\\bin\\'
 
 class BrowseFolderButton(wx.Button):
 

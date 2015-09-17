@@ -1,5 +1,8 @@
 import wx
-from subprocess import call
+# from subprocess import call
+
+from printer import mprint
+from process import Process
 
 class BrowseFolderButton(wx.Button):
 
@@ -189,8 +192,20 @@ class Interface(wx.Frame):
 		c = self.get_columns_info()
 		a = str(self.get_antennas_info())
 
-		print " ".join(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o, "-c", c, "-a", a])
-		call(["anaconda", "./process.py", "-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o, "-c", c, "-a", a])
+		mprint("Executing the process with the following parameters: ")
+		l = ["-b", b, "-z", tz, "-f", hdf5, "-i", i, "-o", o, "-c", c, "-a", a]
+		for arg, value in zip(l[0::2], l[1::2]):
+			print str(arg) + " " + str(value)
+
+		p = Process()
+		p.process(
+			timezone=tz,
+			hdf5_folder=hdf5,
+			input=i,
+			output_dir=o,
+			bin_time=int(b),
+			columns=c,
+			antennas=a)
 
 if __name__ == '__main__':
 
